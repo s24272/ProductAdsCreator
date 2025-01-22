@@ -3,7 +3,11 @@ from datasets import Dataset
 import pandas as pd
 import numpy as np
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+from nltk.translate.bleu_score import sentence_bleu
+from rouge_score import rouge_scorer
 import os
+import nltk
+nltk.download('punkt')
 
 train_df = pd.read_csv('data/amazon_products_train.csv')
 valid_df = pd.read_csv('data/amazon_products_valid.csv')
@@ -42,17 +46,34 @@ def compute_metrics(eval_pred):
     precision = precision_score(labels, predictions, average='macro')
     recall = recall_score(labels, predictions, average='macro')
     f1 = f1_score(labels, predictions, average='macro')
+
+    predictions_text = tokenizer.batch_decode(predictions, skip_special_tokens=True)
+    labels_text = tokenizer.batch_decode(labels, skip_special_tokens=True)
+
+    bleu_scores = [sentence_bleu([label.split()], pred.split()) for label, pred in zip(labels_text, predictions_text)]
+    bleu_score = np.mean(bleu_scores)
+
+    scorer = rouge_scorer.RougeScorer(['rouge1', 'rouge2', 'rougeL'], use_stemmer=True)
+    rouge_scores = [scorer.score(label, pred) for label, pred in zip(labels_text, predictions_text)]
+    rouge1 = np.mean([score['rouge1'].fmeasure for score in rouge_scores])
+    rouge2 = np.mean([score['rouge2'].fmeasure for score in rouge_scores])
+    rougeL = np.mean([score['rougeL'].fmeasure for score in rouge_scores])
+
     return {
         'accuracy': accuracy,
         'precision': precision,
         'recall': recall,
-        'f1': f1
+        'f1': f1,
+        'bleu': bleu_score,
+        'rouge1': rouge1,
+        'rouge2': rouge2,
+        'rougeL': rougeL
     }
 
 training_args = TrainingArguments(
     output_dir="./results",
     overwrite_output_dir=True,
-    num_train_epochs=5,
+    num_train_epochs=100,
     per_device_train_batch_size=4,
     save_steps=10_000,
     save_total_limit=2,
