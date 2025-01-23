@@ -9,11 +9,11 @@ import os
 import nltk
 nltk.download('punkt')
 
-train_df = pd.read_csv('data/products_train.csv')
-valid_df = pd.read_csv('data/products_valid.csv')
+train_df = pd.read_csv('data/products_category_train.csv')
+valid_df = pd.read_csv('data/products_category_valid.csv')
 
 def format_data(row):
-    return f"Product: {row['product']} | Description: {row['description']} | Ad: {row['ad']}"
+    return f"Category: {row['category']} | Product: {row['product']} | Description: {row['description']} | Ad: {row['ad']}"
 
 train_df['formatted_text'] = train_df.apply(format_data, axis=1)
 valid_df['formatted_text'] = valid_df.apply(format_data, axis=1)
@@ -53,11 +53,6 @@ def compute_metrics(eval_pred):
     bleu_scores = [sentence_bleu([label.split()], pred.split()) for label, pred in zip(labels_text, predictions_text)]
     bleu_score = np.mean(bleu_scores)
 
-    scorer = rouge_scorer.RougeScorer(['rouge1', 'rouge2', 'rougeL'], use_stemmer=True)
-    rouge_scores = [scorer.score(label, pred) for label, pred in zip(labels_text, predictions_text)]
-    rouge1 = np.mean([score['rouge1'].fmeasure for score in rouge_scores])
-    rouge2 = np.mean([score['rouge2'].fmeasure for score in rouge_scores])
-    rougeL = np.mean([score['rougeL'].fmeasure for score in rouge_scores])
 
     return {
         'accuracy': accuracy,
@@ -65,15 +60,14 @@ def compute_metrics(eval_pred):
         'recall': recall,
         'f1': f1,
         'bleu': bleu_score,
-        'rouge1': rouge1,
-        'rouge2': rouge2,
-        'rougeL': rougeL
     }
 
 training_args = TrainingArguments(
     output_dir="./results",
+    report_to="none",
+    learning_rate=2e-5,
     overwrite_output_dir=True,
-    num_train_epochs=5,
+    num_train_epochs=3,
     per_device_train_batch_size=4,
     save_steps=10_000,
     save_total_limit=2,
@@ -93,8 +87,8 @@ trainer = Trainer(
 
 trainer.train()
 
-model.save_pretrained("./gpt2_finetuned_amazon")
-tokenizer.save_pretrained("./gpt2_finetuned_amazon")
+model.save_pretrained("./gpt2_finetuned_amazon2")
+tokenizer.save_pretrained("./gpt2_finetuned_amazon2")
 
 metrics = trainer.evaluate()
 
@@ -107,5 +101,5 @@ with open(metrics_file_path, "w") as metrics_file:
     for key, value in metrics.items():
         metrics_file.write(f"{key}: {value}\n")
 
-print("Model został wytrenowany i zapisany w folderze './gpt2_finetuned_amazon'")
+print("Model został wytrenowany i zapisany")
 print(f"Metryki zostały zapisane w pliku {metrics_file_path}")
